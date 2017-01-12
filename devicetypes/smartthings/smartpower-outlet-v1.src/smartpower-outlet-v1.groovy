@@ -1,11 +1,10 @@
 metadata {
 	// Automatically generated. Make future change here.
-	definition (name: "SmartPower Outlet V1", namespace: "smartthings", author: "SmartThings") {
+	definition (name: "HCO", namespace: "smartthings", author: "SmartThings") {
 		capability "Actuator"
 		capability "Switch"
 		capability "Sensor"
-
-		fingerprint profileId: "0104", inClusters: "0006, 0004, 0003, 0000, 0005", outClusters: "0019", manufacturer: "Compacta International, Ltd", model: "ZBMPlug15", deviceJoinName: "SmartPower Outlet V1"
+		capability "Refresh"
 	}
 
 	// simulator metadata
@@ -22,17 +21,21 @@ metadata {
 	tiles(scale: 2) {
 		multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true){
 			tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
-				attributeState "off", label: '${name}', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
-				attributeState "on", label: '${name}', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#79b821"
+				attributeState "on", label: 'On', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#79b821", nextState: "turningOff"
+				attributeState "off", label: 'Off', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff", nextState: "turningOn"
+				attributeState "turningOn", label: 'Turning On', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#79b821", nextState: "turningOff"
+				attributeState "turningOff", label: 'Turning Off', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff", nextState: "turningOn"
+			
 			}
 		}
 		main "switch"
-		details "switch"
+		details(["switch","refresh"])
 	}
 }
 
 // Parse incoming device messages to generate events
 def parse(String description) {
+	log.debug "parse -- $description" 
 	if (description?.startsWith("catchall: 0104 000A")) {
 		log.debug "Dropping catchall for SmartPower Outlet"
 		return []
