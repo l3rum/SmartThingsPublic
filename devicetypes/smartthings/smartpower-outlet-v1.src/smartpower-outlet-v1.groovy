@@ -33,26 +33,57 @@ metadata {
 	}
 }
 
+
 // Parse incoming device messages to generate events
 def parse(String description) {
-	
 	log.debug "description is $description"
-	
+
 	def finalResult = zigbee.getKnownDescription(description)
 	def event = [:]
-	
-	log.debug "finalresult is $finalResult"
-	
-	if (description?.startsWith("catchall: 0104 000A")) {
-		log.debug "Dropping catchall for SmartPower Outlet"
-		return []
-	} else {
-		def name = description?.startsWith("on/off: ") ? "switch" : null
-		def value = name == "switch" ? (description?.endsWith(" 1") ? "on" : "off") : null
-		def result = createEvent(name: name, value: value)
-		log.debug "Parse returned ${result?.descriptionText}"
-		return result
+
+	//TODO: Remove this after getKnownDescription can parse it automatically
+	if (!finalResult && description!="updated")
+		finalResult = getPowerDescription(zigbee.parseDescriptionAsMap(description))
+
+	if (finalResult) {
+		log.info "final result = $finalResult"
+		if (finalResult.type == "update") {
+			log.info "$device updates: ${finalResult.value}"
+			event = null
+		}
+		else if (finalResult.type == "power") {
+			def powerValue = (finalResult.value as Integer)/10
+			event = createEvent(name: "power", value: powerValue, descriptionText: '{{ device.displayName }} power is {{ value }} Watts', translatable: true)
+			/*
+				Dividing by 10 as the Divisor is 10000 and unit is kW for the device. AttrId: 0302 and 0300. Simplifying to 10
+				power level is an integer. The exact power level with correct units needs to be handled in the device type
+				to account for the different Divisor value (AttrId: 0302) and POWER Unit (AttrId: 0300). CLUSTER for simple metering is 0702
+			*/
+		}
+		else {
+			def descriptionText = finalResult.value == "on" ? '{{ device.displayName }} is On' : '{{ device.displayName }} is Off'
+			event = createEvent(name: finalResult.type, value: finalResult.value, descriptionText: descriptionText, translatable: true)
+		}
 	}
+	else {
+		def cluster = zigbee.parse(description)
+
+		if (cluster && cluster.clusterId == 0x0006 && cluster.command == 0x07){
+			if (cluster.data[0] == 0x00) {
+				log.debug "ON/OFF REPORTING CONFIG RESPONSE: " + cluster
+				event = createEvent(name: "checkInterval", value: 60 * 12, displayed: false, data: [protocol: "zigbee", hubHardwareId: device.hub.hardwareID])
+			}
+			else {
+				log.warn "ON/OFF REPORTING CONFIG FAILED- error code:${cluster.data[0]}"
+				event = null
+			}
+		}
+		else {
+			log.warn "DID NOT PARSE MESSAGE for description : $description"
+			log.debug "${cluster}"
+		}
+	}
+	return event
 }
 
 // Commands to device
