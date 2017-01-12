@@ -5,6 +5,8 @@ metadata {
 		capability "Switch"
 		capability "Sensor"
 		capability "Refresh"
+		capability "Temperature Measurement"
+		capability "Configuration"
 	}
 
 	// simulator metadata
@@ -28,8 +30,23 @@ metadata {
 			
 			}
 		}
+		
+			multiAttributeTile(name:"temperature", type: "generic", width: 6, height: 4){
+			tileAttribute ("device.temperature", key: "PRIMARY_CONTROL") {
+				attributeState "temperature", label:'${currentValue}°',
+					backgroundColors:[
+						[value: 31, color: "#153591"],
+						[value: 44, color: "#1e9cbb"],
+						[value: 59, color: "#90d2a7"],
+						[value: 74, color: "#44b621"],
+						[value: 84, color: "#f1d801"],
+						[value: 95, color: "#d04e00"],
+						[value: 96, color: "#bc2323"]
+					]
+			}
+		}
 		main "switch"
-		details(["switch","refresh"])
+		details(["switch","temperature","refresh"])
 	}
 }
 
@@ -117,4 +134,21 @@ def ping() {
 
 def refresh() {
 	zigbee.onOffRefresh()
+}
+
+def configure() {
+	// Device-Watch allows 2 check-in misses from device + ping (plus 1 min lag time)
+	// enrolls with default periodic reporting until newer 5 min interval is confirmed
+	sendEvent(name: "checkInterval", value: 2 * 60 * 60 + 1 * 60, displayed: false, data: [protocol: "zigbee", hubHardwareId: device.hub.hardwareID])
+
+	log.debug "Configuring Reporting and Bindings."
+	def humidityConfigCmds = [
+		"zdo bind 0x${device.deviceNetworkId} 1 1 0xFC45 {${device.zigbeeId}} {}", "delay 2000",
+		"zcl global send-me-a-report 0xFC45 0 0x29 30 3600 {6400}", "delay 200",
+		"send 0x${device.deviceNetworkId} 1 1", "delay 2000"
+	]
+
+	// temperature minReportTime 30 seconds, maxReportTime 5 min. Reporting interval if no activity
+	// battery minReport 30 seconds, maxReportTime 6 hrs by default
+	return refresh() + zigbee.temperatureConfig(30, 300)  // send refresh cmds as part of config
 }
