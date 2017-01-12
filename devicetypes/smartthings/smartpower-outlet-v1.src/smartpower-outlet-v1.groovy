@@ -76,7 +76,7 @@ def off() {
 	]
 }
 
-}
+
 /**
  * PING is used by Device-Watch in attempt to reach the Device
  * */
