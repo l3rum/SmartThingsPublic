@@ -35,7 +35,14 @@ metadata {
 
 // Parse incoming device messages to generate events
 def parse(String description) {
-	log.debug "parse -- $description" 
+	
+	log.debug "description is $description"
+	
+	def finalResult = zigbee.getKnownDescription(description)
+	def event = [:]
+	
+	log.debug "finalresult is $finalResult"
+	
 	if (description?.startsWith("catchall: 0104 000A")) {
 		log.debug "Dropping catchall for SmartPower Outlet"
 		return []
@@ -67,4 +74,16 @@ def off() {
 			"send 0x${zigbee.deviceNetworkId} 0x01 0x${zigbee.endpointId}",
 			'delay 2000'
 	]
+}
+
+}
+/**
+ * PING is used by Device-Watch in attempt to reach the Device
+ * */
+def ping() {
+	return zigbee.onOffRefresh()
+}
+
+def refresh() {
+	zigbee.onOffRefresh()
 }
