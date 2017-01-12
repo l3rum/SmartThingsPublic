@@ -21,7 +21,7 @@ metadata {
 	}
 
 	tiles(scale: 2) {
-		multiAttributeTile(name:"switch", type: "lighting", width: 6, height: 4, canChangeIcon: true){
+		multiAttributeTile(name:"switch", type: "lighting", width: 3, height: 3, canChangeIcon: true){
 			tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
 				attributeState "on", label: 'On', action: "switch.off", icon: "st.switches.switch.on", backgroundColor: "#79b821", nextState: "turningOff"
 				attributeState "off", label: 'Off', action: "switch.on", icon: "st.switches.switch.off", backgroundColor: "#ffffff", nextState: "turningOn"
@@ -31,7 +31,7 @@ metadata {
 			}
 		}
 		
-			multiAttributeTile(name:"temperature", type: "generic", width: 6, height: 4){
+			multiAttributeTile(name:"temperature", type: "generic", width: 3, height: 3){
 			tileAttribute ("device.temperature", key: "PRIMARY_CONTROL") {
 				attributeState "temperature", label:'${currentValue}°',
 					backgroundColors:[
@@ -45,6 +45,12 @@ metadata {
 					]
 			}
 		}
+		
+		standardTile("refresh", "device.refresh", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
+			state "default", action:"refresh.refresh", icon:"st.secondary.refresh"
+		}
+		
+		
 		main "switch"
 		details(["switch","temperature","refresh"])
 	}
@@ -133,7 +139,10 @@ def ping() {
 }
 
 def refresh() {
-	zigbee.onOffRefresh()
+	
+	zigbee.readAttribute(0x0402, 0x0000)
+	
+	return zigbee.onOffRefresh()
 }
 
 def configure() {
@@ -142,6 +151,10 @@ def configure() {
 	sendEvent(name: "checkInterval", value: 2 * 60 * 60 + 1 * 60, displayed: false, data: [protocol: "zigbee", hubHardwareId: device.hub.hardwareID])
 
 	log.debug "Configuring Reporting and Bindings."
+	
+	configureReporting(0x0402, 0x0000, 0x29, 30, 3600, 0x0064)
+	
+	
 	def humidityConfigCmds = [
 		"zdo bind 0x${device.deviceNetworkId} 1 1 0xFC45 {${device.zigbeeId}} {}", "delay 2000",
 		"zcl global send-me-a-report 0xFC45 0 0x29 30 3600 {6400}", "delay 200",
